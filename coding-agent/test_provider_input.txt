@@ -1,0 +1,7 @@
+groq
+groq
+llama3-70b-8192
+gsk_test_key
+
+0.1
+4000

@@ -1,0 +1,35 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Virtual environments
+.venv/
+venv/
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Agent sessions
+agent-session-*.md
+
+# Claude local settings
+.claude/settings.local.json

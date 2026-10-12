@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coding-agent"
+version = "0.1.0"
+description = "Next-gen autonomous coding agent with LangGraph and pgvector"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=0.1.0",
+    "langgraph>=0.0.20",
+    "langchain-openai>=0.0.20",
+    "langchain-anthropic>=0.0.10",
+    "langchain-core>=0.1.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pgvector>=0.2.0",
+    "psycopg[pool]>=3.1.0",
+    "asyncpg>=0.28.0",
+    "python-dotenv>=1.0.0",
+    "pydantic-ai>=0.0.10",
+    "rich>=13.0.0",
+    "pyyaml>=6.0.0",
+    "structlog>=24.0.0",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "pre-commit>=3.6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true

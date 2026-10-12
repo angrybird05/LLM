@@ -1,0 +1,15 @@
+$env:ANTHROPIC_BASE_URL = "https://openrouter.ai/api"
+$env:ANTHROPIC_API_KEY = "your-openrouter-api-key-here"
+$env:ANTHROPIC_AUTH_TOKEN = "your-openrouter-api-key-here"
+claude --model stealth/ox-alpha
+
+
+
+C:\Users\ajayb\codeAgent\.venv\Scripts\coding-agent.exe
+
+
+
+cd C:\Users\ajayb\codeAgent
+>> .\.venv\Scripts\Activate.ps1   # if not already active
+>> coding-agent tui
+>> 
