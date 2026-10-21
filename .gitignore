@@ -50,9 +50,11 @@ data/*.sqlite
 
 # Agent sessions
 agent-session-*.md
+**/agent-session-*.md
 
 # Architecture docs
 flowchartAndArchitecture.txt
+**/flowchartAndArchitecture.txt
 
 # Claude local settings
 .claude/settings.local.json
