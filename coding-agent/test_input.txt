@@ -1,2 +1,0 @@
-create a simple hello world file
-exit
