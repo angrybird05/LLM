@@ -28,8 +28,31 @@ venv/
 # Node
 node_modules/
 
+# Environment & Credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+credentials.json
+client_secret*.json
+
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+dev.db
+data/*.db
+data/*.sqlite
+.agent/
+
 # Agent sessions
 agent-session-*.md
+
+# Architecture docs
+flowchartAndArchitecture.txt
 
 # Claude local settings
 .claude/settings.local.json

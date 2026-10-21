@@ -72,7 +72,7 @@ class FakeStatus:
         pass
 
 
-racing_console = rich.console.Console(force_terminal=True, file=io.StringIO())
+racing_console = rich.console.Console(force_terminal=True, force_interactive=True, file=io.StringIO())
 racing_console.status = FakeStatus  # type: ignore[assignment]
 real_console, renderer.console = renderer.console, racing_console
 try:

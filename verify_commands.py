@@ -91,6 +91,9 @@ class FakeChatService:
             session_id = session.id
         await self.sessions.add_message(
             session_id, MessageCreate(role="user", content=message))
+        if FakeChatService.scenario == "hang":
+            await asyncio.sleep(60)
+            return
         for chunk in ("Command ", "probe ", "reply."):
             yield {"type": "text", "text": chunk}
         await self.sessions.add_message(

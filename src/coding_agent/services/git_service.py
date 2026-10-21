@@ -15,12 +15,15 @@ from loguru import logger
 
 from coding_agent.config import settings
 from coding_agent.core.llm.base import LLMMessage, LLMProvider
-from coding_agent.core.tools.paths import resolve_in_workspace
+from coding_agent.core.tools.paths import ALWAYS_IGNORE_DIRS, resolve_in_workspace
 
 # Diff base for repos that have no commits yet
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-FILE_CHANGING_TOOLS = {"write", "edit"}
+# Directories ignored in git tracking (workspace ignored dirs + internal .agent dir)
+GIT_IGNORE_DIRS = ALWAYS_IGNORE_DIRS | {".agent"}
+
+FILE_CHANGING_TOOLS = {"write", "edit", "ast_edit", "ast_refactor"}
 
 DIFF_DISPLAY_LIMIT = 8000
 
@@ -101,7 +104,10 @@ class GitService:
         return text
 
     def untracked_files(self) -> list[str]:
-        return list(self.repo.untracked_files)
+        return [
+            f for f in self.repo.untracked_files
+            if f.rstrip("/").split("/")[0] not in GIT_IGNORE_DIRS
+        ]
 
     def changed_paths(self) -> list[str]:
         """All working-tree changes vs HEAD (porcelain), staged or not."""
@@ -116,6 +122,8 @@ class GitService:
             name = line[3:].strip().strip('"')
             if "->" in name:  # renames: track the new side
                 name = name.split("->")[-1].strip()
+            if name.rstrip("/").split("/")[0] in GIT_IGNORE_DIRS:
+                continue
             paths.append(name)
         return paths
 
@@ -132,6 +140,46 @@ class GitService:
     def commit(self, message: str) -> str:
         self.repo.git.commit("-m", message)
         return str(self.repo.head.commit.hexsha)[:8]
+
+    def latest_commit_info(self) -> dict | None:
+        """Metadata for HEAD commit, or None if no commits/not a repo."""
+        if not self.is_repo() or not self.has_commits():
+            return None
+        try:
+            c = self.repo.head.commit
+            time_str = ""
+            if getattr(c, "committed_datetime", None):
+                time_str = c.committed_datetime.strftime("%b %d %H:%M")
+            return {
+                "hexsha": str(c.hexsha)[:7],
+                "summary": str(c.summary),
+                "author": str(getattr(c.author, "name", "")),
+                "time": time_str,
+            }
+        except Exception as e:
+            logger.debug(f"latest_commit_info failed: {e}")
+            return None
+
+    def upstream_status(self) -> str | None:
+        """Check tracking status (e.g. synced, ahead, behind)."""
+        if not self.is_repo() or not self.has_commits():
+            return None
+        try:
+            branch = self.repo.active_branch
+            tracking = branch.tracking_branch()
+            if tracking:
+                ahead = len(list(self.repo.iter_commits(f"{tracking.name}..HEAD")))
+                behind = len(list(self.repo.iter_commits(f"HEAD..{tracking.name}")))
+                if ahead and behind:
+                    return f"↑{ahead} ↓{behind}"
+                if ahead:
+                    return f"↑{ahead}"
+                if behind:
+                    return f"↓{behind}"
+                return "synced"
+        except Exception:
+            return None
+        return None
 
 
 @dataclass

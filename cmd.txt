@@ -13,3 +13,115 @@ cd C:\Users\ajayb\codeAgent
 >> .\.venv\Scripts\Activate.ps1   # if not already active
 >> coding-agent tui
 >> 
+
+
+
+
+1. NEXUS Full-Screen Interactive Console (Recommended)
+Launches the full-screen Textual interface with the left project file tree, center AI core, live token accounting, and command dock:
+
+bash
+# In the project virtual environment:
+coding-agent tui
+# Or with specific permission modes & session resume:
+coding-agent tui --mode default        # Prompt before bash, write, and edit tools (safe)
+coding-agent tui --mode auto-edit      # Auto-approve file edits; prompt for bash
+coding-agent tui --mode full-auto      # Auto-run tools; prompt only for dangerous commands
+coding-agent tui --continue            # Resume the most recent session
+coding-agent tui --resume <prefix>     # Resume a specific session by 8-char hex ID
+2. Classic Terminal REPL
+Launches the streamlined terminal REPL (Claude Code-style):
+
+bash
+# Launch fresh session:
+coding-agent
+# Resume last session:
+coding-agent -c
+# In auto-edit mode:
+coding-agent -m auto-edit
+3. FastAPI Backend Server (REST & Streaming SSE)
+Starts the Uvicorn web server hosting the REST endpoints (/api/v1/chat, /api/v1/sessions, /health, /docs):
+
+bash
+# Production / standard serve:
+coding-agent serve --host 127.0.0.1 --port 8000
+# Development with hot reload:
+coding-agent serve --reload
+(Currently running in the background on port 8000).
+
+4. One-Shot Scriptable Chat
+Execute a single query without an interactive UI:
+
+bash
+coding-agent chat "Summarize recent commits and show repo status" --stream
+5. Database Initialization & Schema Migrations
+bash
+# Initialize SQLite tables:
+coding-agent init-db
+# Run Alembic migrations:
+coding-agent migrate
+
+
+
+
+
+
+
+
+
+
+
+
+
+Step-by-Step: Run Everything Fresh (Linux)
+Step 1: Open Terminal & Go to the Project Directory
+bash
+cd /home/faceless/Desktop/LLM
+Step 2: Activate the Virtual Environment
+On Linux, use source .venv/bin/activate (not Activate.ps1):
+
+bash
+source .venv/bin/activate
+Alternative: If you do not want to activate every time, you can directly run .venv/bin/coding-agent.
+
+Step 3: (Optional) Reset / Initialize the Database Fresh
+If you want a fresh database for chat sessions:
+
+bash
+coding-agent init-db
+(or run .venv/bin/coding-agent init-db)
+
+Step 4: Choose How You Want to Run
+A. NEXUS Full-Screen TUI (Interactive GUI Console)
+bash
+coding-agent tui
+Direct one-line command without activation:
+
+bash
+.venv/bin/coding-agent tui
+B. Classic Terminal REPL (Claude Code Style)
+bash
+coding-agent
+Direct one-line command without activation:
+
+bash
+.venv/bin/coding-agent
+C. FastAPI Web Backend Server
+bash
+coding-agent serve --host 127.0.0.1 --port 8000
+Direct one-line command without activation:
+
+bash
+.venv/bin/coding-agent serve --host 127.0.0.1 --port 8000
+Open http://127.0.0.1:8000/docs in your browser for Swagger API docs.
+
+Quick Copy-Paste One-Liner (To Launch NEXUS TUI Right Now)
+bash
+cd /home/faceless/Desktop/LLM && source .venv/bin/activate && coding-agent tui
+
+
+
+
+source .venv/bin/activate
+coding-agent init-db
+coding-agent tui

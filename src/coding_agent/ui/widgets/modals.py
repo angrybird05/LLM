@@ -481,3 +481,126 @@ class FileViewerOverlay(Overlay):
         box.mount(scroll)
         footer = Text(" esc close", style="#31435e")
         box.mount(Static(footer))
+
+
+class NewProjectModal(Overlay):
+    """Create a new project directory at the given location/address.
+    dismiss({"name": str, "path": str}) on confirm, None on cancel."""
+
+    BINDINGS = [Binding("enter", "confirm", show=False)]
+
+    def compose(self) -> ComposeResult:
+        from textual.widgets import Input
+        from coding_agent.config import settings
+        default_loc = str(settings.workspace_path.parent)
+        with Vertical(classes="box"):
+            yield Static("NEW PROJECT", classes="box-title")
+            yield Static("Project name:", classes="field-label")
+            yield Input(placeholder="my-project", id="proj-name")
+            yield Static("Location / Address (parent folder or full path):", classes="field-label")
+            yield Input(value=default_loc, placeholder=default_loc, id="proj-path")
+            with Horizontal(classes="btnrow"):
+                yield Button("Create Project", variant="primary", id="add")
+                yield Button("Cancel", id="cancel-btn")
+
+    def action_confirm(self) -> None:
+        from textual.widgets import Input
+        name = self.query_one("#proj-name", Input).value.strip()
+        path = self.query_one("#proj-path", Input).value.strip()
+        if name:
+            self.dismiss({"name": name, "path": path})
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "add":
+            self.action_confirm()
+        else:
+            self.dismiss(None)
+
+
+class OpenDirectoryModal(Overlay):
+    """Open an existing project directory from disk.
+    dismiss(path) on confirm, None on cancel."""
+
+    BINDINGS = [Binding("enter", "confirm", show=False)]
+
+    def compose(self) -> ComposeResult:
+        from textual.widgets import Input
+        with Vertical(classes="box"):
+            yield Static("OPEN PROJECT DIRECTORY", classes="box-title")
+            yield Static("Directory path (existing):", classes="field-label")
+            yield Input(placeholder="/path/to/existing/project", id="open-path")
+            with Horizontal(classes="btnrow"):
+                yield Button("Open", variant="primary", id="open-btn")
+                yield Button("Cancel", id="cancel-btn")
+
+    def action_confirm(self) -> None:
+        from textual.widgets import Input
+        path = self.query_one("#open-path", Input).value.strip()
+        if path:
+            self.dismiss(path)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "open-btn":
+            self.action_confirm()
+        else:
+            self.dismiss(None)
+
+
+class ProjectSwitcherOverlay(Overlay):
+    """Browse registered projects. dismiss(path) to switch, None to cancel."""
+
+    BINDINGS = [
+        Binding("d", "remove_project", "remove from list"),
+        Binding("o", "open_other", "open from disk"),
+    ]
+
+    def __init__(self, projects: list[dict], current_path: str | None = None):
+        super().__init__()
+        self._projects = projects
+        self._current = current_path
+
+    def compose(self) -> ComposeResult:
+        from textual.widgets import OptionList
+        from textual.widgets.option_list import Option
+        with Vertical(classes="box"):
+            yield Static("PROJECTS — enter switch · d remove · o open from disk", classes="box-title")
+            ol = OptionList(id="project-list")
+            for i, p in enumerate(self._projects, start=1):
+                line = Text()
+                is_cur = p["path"] == self._current
+                line.append("● " if is_cur else "  ", style=f"bold {T.GREEN}")
+                line.append(f"{i:>2} ", style=f"bold {T.CYAN}")
+                line.append(f"{p['name']:<24}", style="#c7d5e8")
+                line.append(p["path"], style=T.FAINT)
+                ol.add_option(Option(line, id=str(i)))
+            yield ol
+            hint = Text()
+            hint.append(" enter", style=f"bold {T.GREEN}")
+            hint.append(" switch · ")
+            hint.append("d", style=f"bold {T.RED}")
+            hint.append(" remove · ")
+            hint.append("o", style=f"bold {T.CYAN}")
+            hint.append(" open directory · esc cancel")
+            yield Static(hint)
+
+    def on_mount(self) -> None:
+        from textual.widgets import OptionList
+        ol = self.query_one("#project-list", OptionList)
+        if ol.option_count:
+            ol.highlighted = 0
+
+    def on_option_list_option_selected(self, event) -> None:
+        idx = int(str(event.option.id)) - 1
+        self.dismiss(self._projects[idx]["path"])
+
+    def action_remove_project(self) -> None:
+        from textual.widgets import OptionList
+        ol = self.query_one("#project-list", OptionList)
+        idx = ol.highlighted
+        if idx is not None and idx < len(self._projects):
+            self.dismiss({"remove": self._projects[idx]["path"]})
+
+    def action_open_other(self) -> None:
+        self.dismiss({"open_other": True})
+
+

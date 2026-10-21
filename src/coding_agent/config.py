@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     READ_LINE_LIMIT: int = 2000
     PERMISSION_MODE: str = "default"  # default | auto-edit | full-auto
 
+    # Semantic AST Editing Engine
+    SEMANTIC_EDITING_ENABLED: bool = True
+    AST_CACHE_SIZE: int = 500
+    LSP_ENABLED: bool = False
+    LSP_SERVERS: dict[str, list[str]] = {}
+
     # Context management: auto-compact history before it outgrows the model window.
     # Estimates use a chars/4 heuristic; provider usage numbers refine the display.
     CONTEXT_TOKEN_LIMIT: int = 200_000   # assumed model context window (tokens)
@@ -74,6 +80,13 @@ class Settings(BaseSettings):
     @property
     def workspace_path(self) -> Path:
         return Path(self.WORKSPACE_ROOT).resolve() if self.WORKSPACE_ROOT else Path.cwd().resolve()
+
+    @property
+    def project_db_url(self) -> str:
+        """SQLite URL for the per-project database inside .agent/agent.db."""
+        db_dir = self.workspace_path / ".agent"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        return f"sqlite+aiosqlite:///{db_dir / 'agent.db'}"
 
     @property
     def allowed_extensions_list(self) -> list[str]:

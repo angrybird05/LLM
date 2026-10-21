@@ -40,7 +40,10 @@ class Tool(ABC):
 
 # Tools that cannot modify the workspace. Plan mode and subagents restrict
 # the model to exactly this set.
-READ_ONLY_TOOL_NAMES = {"read", "list", "glob", "grep", "web_fetch", "web_search"}
+READ_ONLY_TOOL_NAMES = {"read", "list", "glob", "grep", "web_fetch", "web_search", "find_symbols"}
+
+# Semantic AST editing and refactoring tools
+SEMANTIC_TOOL_NAMES = {"ast_edit", "ast_refactor", "find_symbols"}
 
 
 class ToolRegistry:

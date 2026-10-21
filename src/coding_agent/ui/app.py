@@ -69,10 +69,15 @@ from coding_agent.ui.widgets.modals import (
     DiffOverlay,
     FileViewerOverlay,
     HelpOverlay,
+    NewProjectModal,
+    OpenDirectoryModal,
     PermissionModal,
     PermissionsOverlay,
+    ProjectSwitcherOverlay,
     SessionsOverlay,
 )
+from coding_agent.services.project_service import ProjectRegistry
+from coding_agent.services.project_switcher import switch_project
 from coding_agent.ui.widgets.project_panel import ProjectPanel
 from coding_agent.ui.widgets.state_bar import StateBar
 from coding_agent.ui.widgets.system_panel import SystemPanel
@@ -186,6 +191,12 @@ class CodeAgentApp(App):
             conn="READY" if self._provider_ready() else "OFFLINE",
             project=project.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1],
         )
+
+        # Persist the current workspace as the last active project.
+        from coding_agent.services.project_service import ProjectRegistry as _PR
+        _reg = _PR.load()
+        _reg.set_last(str(settings.workspace_path))
+        _reg.save()
 
         core = self.query_one(AiCore)
         core.meta(f"NEXUS console online - {settings.workspace_path}")
@@ -564,21 +575,31 @@ class CodeAgentApp(App):
         branch = self.git.branch() if self.git.is_repo() else None
         changed = self.git.changed_paths() if self.git.is_repo() else []
         untracked = len(self.git.untracked_files()) if self.git.is_repo() else 0
+        latest_commit = self.git.latest_commit_info() if self.git.is_repo() else None
+        upstream = self.git.upstream_status() if self.git.is_repo() else None
         from coding_agent.ui.widgets.project_panel import count_workspace_files
 
         n_files = count_workspace_files(settings.workspace_path)
         touched = [self._rel(p) for p in self.checkpoints.touched()]
         self.call_from_thread(self._apply_project_info,
                               branch, changed + touched, untracked,
-                              self.git.is_repo(), n_files)
+                              self.git.is_repo(), n_files,
+                              latest_commit, upstream)
 
-    def _apply_project_info(self, branch, changed, untracked, is_repo, n_files):
+    def _apply_project_info(self, branch, changed, untracked, is_repo, n_files,
+                            latest_commit=None, upstream=None):
         panel = self.query_one(ProjectPanel)
         panel.apply_git_info(branch, changed, untracked, is_repo)
         cwd_text = str(settings.workspace_path)
         if len(cwd_text) > 38:
             cwd_text = "..." + cwd_text[-35:]
         panel.apply_stats(n_files, cwd_text)
+
+        try:
+            sys_panel = self.query_one(SystemPanel)
+            sys_panel.apply_git_info(branch, changed, untracked, is_repo, latest_commit, upstream)
+        except Exception:
+            pass
 
     def _rel(self, path) -> str:
         from pathlib import Path
@@ -1207,6 +1228,107 @@ class CodeAgentApp(App):
             parts.append(("QUEUE", str(len(self._queue))))
         dock.set_mode_line(parts)
 
+    def action_cmd_new_project(self, arg: str = "") -> None:
+        """Open the New Project modal → register + switch."""
+        self.run_worker(self._new_project_flow(), exclusive=False)
+
+    async def _new_project_flow(self) -> None:
+        result = await self._push_for_result(NewProjectModal())
+        if not result:
+            return
+        name = result["name"].strip()
+        raw_path = result.get("path", "").strip()
+        if not name:
+            self.cmd_note("project name cannot be empty", "warn")
+            return
+
+        from pathlib import Path as _P
+        if not raw_path:
+            raw_path = str(settings.workspace_path.parent)
+
+        p = _P(raw_path).expanduser().resolve()
+
+        # If user specified a parent directory (its name != project name),
+        # create a new subfolder with the project name.
+        if p.name == name:
+            project_dir = p
+        else:
+            project_dir = p / name
+
+        try:
+            project_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            self.cmd_note(f"failed to create project directory '{project_dir}': {e}", "warn")
+            return
+
+        final_path = str(project_dir.resolve())
+        registry = ProjectRegistry.load()
+        registry.add_or_update(name, final_path)
+        registry.save()
+        self.cmd_note(f"project '{name}' created at {final_path} — switching…", "success")
+        if self.busy:
+            self.cmd_note("interrupting turn before project switch…", "warn")
+            self.action_interrupt()
+        self.set_timer(0.3, lambda: switch_project(final_path))
+
+    def action_cmd_open_project(self, arg: str = "") -> None:
+        """Open the project switcher overlay or prompt for directory if none registered."""
+        registry = ProjectRegistry.load()
+        projects = [{"name": p.name, "path": p.path} for p in registry.projects]
+        if not projects:
+            self.run_worker(self._open_dir_flow(), exclusive=False)
+            return
+        current = str(settings.workspace_path)
+        overlay = ProjectSwitcherOverlay(projects, current_path=current)
+        self.push_screen(overlay, callback=self._on_project_switch)
+
+    async def _open_dir_flow(self) -> None:
+        result = await self._push_for_result(OpenDirectoryModal())
+        if not result:
+            return
+        from pathlib import Path as _P
+        p = _P(result).expanduser().resolve()
+        if not p.is_dir():
+            self.cmd_note(f"'{p}' is not an existing directory", "warn")
+            return
+        final_path = str(p)
+        name = p.name or final_path
+        registry = ProjectRegistry.load()
+        registry.add_or_update(name, final_path)
+        registry.save()
+        self.cmd_note(f"opening project '{name}' at {final_path} — switching…", "success")
+        if self.busy:
+            self.cmd_note("interrupting turn before project switch…", "warn")
+            self.action_interrupt()
+        self.set_timer(0.3, lambda: switch_project(final_path))
+
+    def _on_project_switch(self, result) -> None:
+        if not result:
+            return
+        if isinstance(result, dict) and result.get("remove"):
+            path = result["remove"]
+            registry = ProjectRegistry.load()
+            registry.remove(path)
+            registry.save()
+            self.cmd_note(f"removed '{path}' from project list", "success")
+            projects = [{"name": p.name, "path": p.path} for p in registry.projects]
+            if projects:
+                current = str(settings.workspace_path)
+                overlay = ProjectSwitcherOverlay(projects, current_path=current)
+                self.push_screen(overlay, callback=self._on_project_switch)
+            return
+        if isinstance(result, dict) and result.get("open_other"):
+            self.run_worker(self._open_dir_flow(), exclusive=False)
+            return
+        # result is the new path string
+        if result == str(settings.workspace_path):
+            self.cmd_note("already in this project")
+            return
+        if self.busy:
+            self.cmd_note("interrupting turn before project switch…", "warn")
+            self.action_interrupt()
+        self.set_timer(0.3, lambda: switch_project(result))
+
 
 def run_tui(mode: str | None = None, continue_recent: bool = False,
             resume_prefix: str | None = None) -> None:
@@ -1229,6 +1351,23 @@ def run_tui(mode: str | None = None, continue_recent: bool = False,
         pass
 
     asyncio.run(init_db())
+
+    # ── Project auto-resume ───────────────────────────────────────────────────
+    # If the user has a last_project recorded and WORKSPACE_ROOT is not already
+    # pointing there (e.g. they launched from a different CWD), re-exec into it.
+    import os as _os
+    from coding_agent.services.project_service import ProjectRegistry as _PR2
+    from coding_agent.services.project_switcher import switch_project as _sw
+
+    _registry = _PR2.load()
+    _last = _registry.last_project
+    _current_ws = str(settings.workspace_path)
+    if _last and _last != _current_ws and Path(_last).is_dir() \
+            and not _os.environ.get("_AGT_NO_AUTORESUME"):
+        # Set a guard to prevent infinite re-exec loops.
+        _os.environ["_AGT_NO_AUTORESUME"] = "1"
+        _sw(_last)   # does not return — re-execs
+        return       # unreachable, but satisfies type checkers
 
     initial: uuid_mod.UUID | None = None
     pick_at_start = False

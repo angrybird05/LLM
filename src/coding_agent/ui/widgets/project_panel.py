@@ -10,8 +10,8 @@ from pathlib import Path
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Vertical
-from textual.widgets import Static, Tree
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Button, Static, Tree
 from textual.widgets.tree import TreeNode
 
 from coding_agent.config import settings
@@ -70,7 +70,7 @@ def _gitignore_spec(root: Path):
         gi = root / ".gitignore"
         if gi.is_file():
             return pathspec.PathSpec.from_lines(
-                "gitwildmatch", gi.read_text(encoding="utf-8", errors="replace").splitlines()
+                "gitignore", gi.read_text(encoding="utf-8", errors="replace").splitlines()
             )
     except Exception:
         return None
@@ -98,6 +98,23 @@ class ProjectPanel(Vertical):
         padding: 0 0;
         margin-top: 0;
     }}
+    #proj-btn-row {{
+        height: 1;
+        margin-top: 1;
+        margin-bottom: 0;
+        padding: 0 0;
+        align: center middle;
+    }}
+    #proj-btn-row Button {{
+        height: 1;
+        min-height: 1;
+        max-height: 1;
+        border: none;
+        padding: 0;
+        margin: 0 1;
+        width: 1fr;
+        min-width: 6;
+    }}
     """
 
     def __init__(self):
@@ -111,8 +128,16 @@ class ProjectPanel(Vertical):
     def compose(self) -> ComposeResult:
         yield Static(Text("PROJECT", style=f"bold {T.MUTED}"), id="ptitle")
         yield Tree("workspace", id="ptree")
-        yield Static("", id="pgit")
-        yield Static("", id="pstats")
+        yield Static("", id="pstats", classes="pbox")
+        with Horizontal(id="proj-btn-row"):
+            yield Button("＋ New", id="btn-new-project", variant="primary")
+            yield Button("⏏ Open", id="btn-open-project")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-new-project":
+            self.app.action_cmd_new_project("")
+        elif event.button.id == "btn-open-project":
+            self.app.action_cmd_open_project("")
 
     def on_mount(self) -> None:
         self.rebuild_tree()
@@ -179,31 +204,8 @@ class ProjectPanel(Vertical):
 
     def apply_git_info(self, branch: str | None, changed: list[str],
                        untracked: int, is_repo: bool) -> None:
-
-        box = self.query_one("#pgit", Static)
-        line = Text()
-        if is_repo:
-            line.append(f" {chr(9679)} ", style=T.GREEN)
-            line.append("GIT ", style=f"bold {T.MUTED}")
-            line.append(branch or "?", style=T.CYAN)
-            if changed:
-                line.append(f"  ~{len(changed)} modified", style=T.AMBER)
-            if untracked:
-                line.append(f"  +{untracked} untracked", style=T.BLUE)
-        else:
-            line.append(" GIT ", style=f"bold {T.MUTED}")
-            line.append("not a repository", style=T.FAINT)
-        body = Text()
-        body.append_text(line)
-        body.append("\n")
-        shown = changed[:8]
-        for rel in shown:
-            body.append("   ~ ", style=T.AMBER)
-            body.append(_plain_rel(rel), style=T.TEXT)
-            body.append("\n")
-        if len(changed) > len(shown):
-            body.append(f"   … +{len(changed) - len(shown)} more\n", style=T.FAINT)
-        box.update(body)
+        """Git indicators have moved to the right panel (SystemPanel)."""
+        pass
 
     def apply_stats(self, n_files: int | None, cwd_text: str) -> None:
         box = self.query_one("#pstats", Static)

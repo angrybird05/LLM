@@ -749,6 +749,20 @@ def run_repl(mode: str | None = None, continue_recent: bool = False,
     # command or turn works without a separate `coding-agent init-db`.
     asyncio.run(init_db())
 
+    # ── Project auto-resume ───────────────────────────────────────────────────
+    import os as _os
+    from coding_agent.services.project_service import ProjectRegistry as _PR
+    from coding_agent.services.project_switcher import switch_project as _sw
+
+    _registry = _PR.load()
+    _last = _registry.last_project
+    _current_ws = str(settings.workspace_path)
+    if _last and _last != _current_ws and Path(_last).is_dir() \
+            and not _os.environ.get("_AGT_NO_AUTORESUME"):
+        _os.environ["_AGT_NO_AUTORESUME"] = "1"
+        _sw(_last)
+        return
+
     initial: uuid_mod.UUID | None = None
     pick_at_start = False
     if resume_prefix is not None:

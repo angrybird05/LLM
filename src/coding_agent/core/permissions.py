@@ -19,8 +19,8 @@ from typing import Any
 
 PromptFn = Callable[["PermissionRequest"], Awaitable[str]]
 
-RISKY_TOOLS = {"bash", "write", "edit"}
-WRITE_TOOLS = {"write", "edit"}
+RISKY_TOOLS = {"bash", "write", "edit", "ast_edit", "ast_refactor"}
+WRITE_TOOLS = {"write", "edit", "ast_edit", "ast_refactor"}
 
 # Commands that ask for confirmation in EVERY mode — one wrong call here can
 # destroy a machine or a repo, so convenience never overrides them.
@@ -138,6 +138,12 @@ def build_preview(tool_name: str, arguments: dict[str, Any]) -> str:
             more = f"\n… ({len(lines)} lines total)" if len(lines) > 20 else ""
             return f"{path} [new file]\n{head}{more}"
         return f"{path}\n{unified_diff(old_content, new_content)}"
+    if tool_name in ("ast_edit", "ast_refactor"):
+        diff = arguments.get("__preview_diff__") or arguments.get("diff")
+        if diff:
+            return f"[AST {arguments.get('operation', tool_name)}]\n{diff}"
+        op = arguments.get("operation", tool_name)
+        return f"[AST {op}] {path}\n{arguments.get('new_name') or arguments.get('action') or ''}"
     return str(arguments)[:500]
 
 

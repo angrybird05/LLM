@@ -38,6 +38,8 @@ COMMANDS: list[CommandSpec] = [
     CommandSpec("tools", "/tools", "list agent tools"),
     CommandSpec("settings", "/settings", "session settings overview"),
     CommandSpec("clear", "/clear", "start a fresh session"),
+    CommandSpec("new-project", "/new-project", "register & switch to a new project directory"),
+    CommandSpec("open-project", "/open-project", "browse and switch registered projects"),
     CommandSpec("help", "/help", "keys and commands"),
     CommandSpec("exit", "/exit", "quit the console"),
 ]
